@@ -15,6 +15,8 @@ TX 11 13 RX
 ### Menu
 code
 
+already allows for topping up (* > code 12345 > *)
+
 ### Keypad
 Arduino Uno port 2-7
 
