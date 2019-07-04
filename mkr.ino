@@ -1,8 +1,55 @@
-//MKR GSM
-//Contains dummy sensor variables set and changed as simulation and send to uno over uart
-//will have sensor connections for temp, humidy and voltage levels
+//MKR GSM 1400
 
-//TODO: merge with working hologram code
+//TODO: Voltage Meter Sensor
+//TODO: show GSM status in LCD menu on UNO
+//TODO: led for GSM status
+//TODO: multiple values to hologram or aws which we can plot
+//TODO: allow offline working, but set in restricted regime
+//TODO: power off if no temperature readings for a while??
+
+//---- START HOLOGRAM SIM ---
+bool sendingOK=false; //static setting: do we want to send stuff to the hologram cloud?
+// libraries
+#include <MKRGSM.h>
+boolean connected = false;
+String Values;
+
+String IMEI = "";
+const char PINNUMBER[] = " ";
+// APN data
+const char GPRS_APN[] = "hologram";
+const char GPRS_LOGIN[] = " ";
+const char GPRS_PASSWORD[] = " ";
+
+//Hologram Config
+String HOLOGRAM_DEVICE_KEY = "u_SVsfE1"; //"4F)o{}2_";
+String HOLOGRAM_TOPIC = "MKR1400";
+
+// initialize the library instance
+GSMClient client;
+GPRS gprs;
+GSM gsmAccess;
+// modem verification object
+GSMModem modem;
+
+// Hologram's Embedded API (https://hologram.io/docs/reference/cloud/embedded/) URL and port
+char server[] = "cloudsocket.hologram.io";
+int port = 9999;
+
+// --- END HOLOGRAM
+
+// VOLTAGE SENSOR TODO doesnt work
+// voltage sensor: http://henrysbench.capnfatz.com/henrys-bench/arduino-voltage-measurements/arduino-25v-voltage-sensor-module-user-manual/
+//https://www.electronicshub.org/interfacing-voltage-sensor-with-arduino/
+
+/*
+const int voltageSensor = A1;
+float vOUT = 0.0;
+float vIN = 0.0;
+float R1 = 30000.0;
+float R2 = 7500.0;
+int value = 0;
+// end Voltage sensor*/
 
 int counter = 0;
 String inputString = "";         // a String to hold incoming data
@@ -54,6 +101,39 @@ void setup() {
 
   dht.begin();
   dht2.begin();
+
+  // start modem test (reset and check response)
+  Serial.print("Starting modem test...");
+  if (modem.begin()) {
+    Serial.println("modem.begin() succeeded");
+  } else {
+    Serial.println("ERROR, no modem answer.");
+  }
+  checkIMEI();
+  
+  Serial.println("Starting Arduino web client.");
+  // connection state
+  
+  // After starting the modem with GSM.begin()
+  // attach to the GPRS network with the APN, login and password
+  while (!connected) {
+     Serial.println("Begin GSM Access");
+    if ((gsmAccess.begin() == GSM_READY) &&
+        (gprs.attachGPRS(GPRS_APN, GPRS_LOGIN, GPRS_PASSWORD) == GPRS_READY)) {
+      connected = true;
+      Serial.println("GSM Access Success");
+
+      
+    } 
+    else {
+      Serial.println("Not connected");
+      delay(1000);
+    }
+  }
+  //delay(5000);
+  //TODO if cannot connect can work offline as well, except no mobile topping up
+  
+  
 }
 
 void loop() {
@@ -85,6 +165,18 @@ void loop() {
   if(counter>20) {//time to update stats
     counter=0;
 
+    /*
+    //Voltage
+    Serial.println("reading Voltage");
+    //value = analogRead(voltageSensor);
+    //vOUT = (value * 5.0) / 1024.0;
+    //vIN = vOUT / (R2/(R1+R2));
+    //Serial.println(value);
+    int val11=analogRead(8);
+    float temp=val11/4.092;
+    float val2=(temp/10);
+    Serial.println(val2);*/
+    
     //DHT
     Serial.println("reading DHT");
     readDHT();
@@ -138,11 +230,54 @@ void loop() {
     delay(150);
     Serial1.print("[genable]");//power off when out of credit = disable if not disabled yet
     delay(150);*/
+
+    sendDataGsm();
   }
   delay(150);
+  
 }
 
+void sendDataGsm() {
+  if(connected & sendingOK) {
+    //Send the Data to Hologram Network
+    if (client.connect(server, port)) {
+      Serial.println("connected");
+      Values= "test message 2";
+      // Send a Message request:
+      client.println("{\"k\":\"" + HOLOGRAM_DEVICE_KEY +"\",\"d\":\""+ Values+ "\",\"t\":\""+HOLOGRAM_TOPIC+"\"}");
+    } else {
+      // if you didn't get a connection to the server:
+      Serial.println("connection failed");
+    }
+    
+    client.stop();
+    //Serial.println("sleeping 10s...");
+    //delay(10000);
+    //Serial.println("woken up...");
+  }
+}
 
+void checkIMEI() {
+  Serial.print("Checking IMEI...");
+  IMEI = modem.getIMEI();
+
+  // check IMEI response
+  if (IMEI != NULL) {
+    // show IMEI in serial monitor
+    Serial.println("Modem's IMEI: " + IMEI);
+    // reset modem to check booting:
+    Serial.print("Resetting modem...");
+    modem.begin();
+    // get and check IMEI one more time
+    if (modem.getIMEI() != NULL) {
+      Serial.println("Modem is functoning properly");
+    } else {
+      Serial.println("Error: getIMEI() failed after modem.begin()");
+    }
+  } else {
+    Serial.println("Error: Could not get IMEI");
+  }
+}
 void simulateSettings() {
   //simple random for now
   
