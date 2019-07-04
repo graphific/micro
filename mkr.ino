@@ -24,6 +24,22 @@ bool load_lv_b = true; //true if load_lv_w > passive threshold
 bool load_hv_b = true; //true if load_hv_w > passive threshold
 float humidity = 40; //humidity in percentage (sensor)
 
+//-- DHT
+//3 pin version of DHT11
+// REQUIRES the following Arduino libraries:
+// - DHT Sensor Library: https://github.com/adafruit/DHT-sensor-library
+// - Adafruit Unified Sensor Lib: https://github.com/adafruit/Adafruit_Sensor
+
+#include "DHT.h"
+#define DHTPIN 6     // Digital pin connected to the DHT sensor
+#define DHTTYPE DHT11   // DHT 11
+DHT dht(DHTPIN, DHTTYPE);
+
+#define DHTPIN2 7     // Digital pin connected to the DHT sensor
+#define DHTTYPE2 DHT22   // DHT 22  (AM2302), AM2321
+DHT dht2(DHTPIN2, DHTTYPE2);
+//-- END DHT
+
 void setup() {
   Serial.begin(57600);
   while(!Serial){};
@@ -35,6 +51,9 @@ void setup() {
   Serial1.begin(57600);
   while(!Serial1){};
   Serial1.write("hello serial1");
+
+  dht.begin();
+  dht2.begin();
 }
 
 void loop() {
@@ -65,6 +84,12 @@ void loop() {
   
   if(counter>20) {//time to update stats
     counter=0;
+
+    //DHT
+    Serial.println("reading DHT");
+    readDHT();
+    //END DHT
+    
     simulateSettings();
     //bat 12.1v,solar 20w always 5 chars 1.2a
     //b12.1s0020a01.2a
@@ -134,12 +159,13 @@ void simulateSettings() {
   //bat_v starts high and becomes less
   bat_v-=0.01;
 
+  //commented = we got actual sensor data (DHT)!
   //bat_temp rand increase or decrease
-  if(random(0, 10)>5) {
-    bat_temp += 0.1;
-  } else {
-    bat_temp -= 0.1;
-  }
+  //if(random(0, 10)>5) {
+  //  bat_temp += 0.1;
+  //} else {
+  //  bat_temp -= 0.1;
+  //}
   
   //load_lv_w
   if(random(0, 10)>5) {
@@ -154,6 +180,79 @@ void simulateSettings() {
   } else {
     load_hv_w = 0;
   }
+
+  //commented = we got actual sensor data (DHT)!
+  //humidity = random(30, 70);
+}
+
+
+void readDHT() {
+  // Reading temperature or humidity takes about 250 milliseconds!
+  // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
+  float h = dht.readHumidity();
+  // Read temperature as Celsius (the default)
+  float t = dht.readTemperature();
+  // Read temperature as Fahrenheit (isFahrenheit = true)
+  float f = dht.readTemperature(true);
+  // Check if any reads failed and exit early (to try again).
+  if (isnan(h) || isnan(t) || isnan(f)) {
+    Serial.println(F("Failed to read from DHT sensor!"));
+    return;
+    //TODO: set to resetting values to 0 as no readings if too many fail?
+  }
+  // Compute heat index in Fahrenheit (the default)
+  float hif = dht.computeHeatIndex(f, h);
+  // Compute heat index in Celsius (isFahreheit = false)
+  float hic = dht.computeHeatIndex(t, h, false);
+
+  Serial.print(F("Humidity: "));
+  Serial.print(h);
+  Serial.print(F("%  Temperature: "));
+  Serial.print(t);
+  Serial.print(F("°C "));
+  Serial.print(f);
+  Serial.print(F("°F  Heat index: "));
+  Serial.print(hic);
+  Serial.print(F("°C "));
+  Serial.print(hif);
+  Serial.println(F("°F"));
+
+  //DHT2
+  // Reading temperature or humidity takes about 250 milliseconds!
+  // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
+  float h2 = dht2.readHumidity();
+  // Read temperature as Celsius (the default)
+  float t2 = dht2.readTemperature();
+  // Read temperature as Fahrenheit (isFahrenheit = true)
+  float f2 = dht2.readTemperature(true);
+  // Check if any reads failed and exit early (to try again).
+  if (isnan(h2) || isnan(t2) || isnan(f2)) {
+    Serial.println(F("Failed to read from DHT2 sensor!"));
+    return;
+    //TODO: set to resetting values to 0 as no readings if too many fail?
+  }
+  // Compute heat index in Fahrenheit (the default)
+  float hif2 = dht.computeHeatIndex(f2, h2);
+  // Compute heat index in Celsius (isFahreheit = false)
+  float hic2 = dht.computeHeatIndex(t2, h2, false);
+
+  Serial.print(F("Humidity2: "));
+  Serial.print(h2);
+  Serial.print(F("%  Temperature2: "));
+  Serial.print(t2);
+  Serial.print(F("°C "));
+  Serial.print(f2);
+  Serial.print(F("°F  Heat index2: "));
+  Serial.print(hic2);
+  Serial.print(F("°C "));
+  Serial.print(hif2);
+  Serial.println(F("°F"));
+
+  //TODO: for now take average, in real system 2 temps
+  //1 for bat, 1 for housing
+  //saving humidity, temp (TODO: heat index as well?)
+  //to be send on simulate settings function
+  humidity = (h+h2)/2;
+  bat_temp = (t+t2)/2;
   
-  humidity = random(30, 70);
 }
