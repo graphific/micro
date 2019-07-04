@@ -6,6 +6,7 @@
 //TODO: multiple values to hologram or aws which we can plot
 //TODO: allow offline working, but set in restricted regime
 //TODO: power off if no temperature readings for a while??
+//TODO: set current datetime in uno LCD menu + update uno from GSM GPS time
 
 #include <math.h>
 
@@ -91,17 +92,10 @@ DHT dht2(DHTPIN2, DHTTYPE2);
 //-- END DHT
 
 // SET TIME from GPS
-//#include <TimeLib.h> //http://arduiniana.org/libraries/TinyGPS/
-//#include "TinyGPS.h"
-//TODO: use tinypgs++: http://arduiniana.org/libraries/tinygpsplus/
-//#include <TinyGPS++.h>
-
-//TinyGPS gps; 
-//TinyGPSPlus gps;
-
-//#include <TimeLib.h>
-//#include <Wire.h>
-//#include <DS1307RTC.h>  // a basic DS1307 library that returns time as a time_t
+#include <RTCZero.h>
+/* Create an rtc object */
+RTCZero rtc;
+//to set internal rtc clock after we get it from gps
 //// END TIME
 
 void setup() {
@@ -118,6 +112,8 @@ void setup() {
 
   dht.begin();
   dht2.begin();
+
+  rtc.begin(); // initialize RTC
 
   // start modem test (reset and check response)
   Serial.print("Starting modem test...");
@@ -147,29 +143,46 @@ void setup() {
       IPAddress LocalIP = gprs.getIPAddress();
       Serial.println("Server IP address=");
       Serial.println(LocalIP);
-  
-      /*unsigned long secsSince1900 = gsmAccess.getLocalTime();
-      //1562260319
-      Serial.print("Seconds since Jan 1 1900 = " );
-      Serial.println(secsSince1900);
-      // now convert NTP time into everyday time:
-      Serial.print("Unix time = ");
-      // Unix time starts on Jan 1 1970. In seconds, that's 2208988800:
-      const unsigned long seventyYears = 2208988800UL;
-      // subtract seventy years:
-      unsigned long epoch = secsSince1900 - seventyYears;
-      // print Unix time:
-      Serial.println(epoch);*/
 
       unsigned long epoch = gsmAccess.getLocalTime();
 
+      Serial.print("gsmAccess.getLocalTime=");
+      //year
+      Serial.println(epoch);
+
+      Serial.println("setting RTC time...");
+      rtc.setEpoch(epoch); // from GPS
+
+      Serial.print("Unix time = ");
+      Serial.println(rtc.getEpoch());
+    
+      Serial.print("Seconds since Jan 1 2000 = ");
+      Serial.println(rtc.getY2kEpoch());
+    
+      // Print date...
+      Serial.print(rtc.getDay());
+      Serial.print("/");
+      Serial.print(rtc.getMonth());
+      Serial.print("/");
+      Serial.print(rtc.getYear());
+      Serial.print("\t");
+    
+      // ...and time
+      print2digits(rtc.getHours());
+      Serial.print(":");
+      print2digits(rtc.getMinutes());
+      Serial.print(":");
+      print2digits(rtc.getSeconds());
+    
+      Serial.println();
+      
+      
+      /*
       //date
       Serial.print("The UTC date is ");
       //year
       Serial.println((epoch / 31556926)+1970);
 
-      
-      
       // print the hour, minute and second:
       Serial.print("The UTC time is ");       // UTC is the time at Greenwich Meridian (GMT)
       Serial.print((epoch  % 86400L) / 3600); // print the hour (86400 equals secs per day)
@@ -184,7 +197,9 @@ void setup() {
         // In the first 10 seconds of each minute, we'll want a leading '0'
         Serial.print('0');
       }
-      Serial.println(epoch % 60); // print the second
+      Serial.println(epoch % 60); // print the second*/
+
+      
 
     } 
     else {
@@ -197,7 +212,7 @@ void setup() {
   
   
 }
-
+ 
 void loop() {
   counter++;
 
@@ -460,4 +475,11 @@ void readDHT() {
   humidity = (h+h2)/2;
   bat_temp = (t+t2)/2;
   
+}
+
+void print2digits(int number) {
+  if (number < 10) {
+    Serial.print("0");
+  }
+  Serial.print(number);
 }
