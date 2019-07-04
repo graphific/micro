@@ -344,16 +344,14 @@ void loop() {
    
   }
 
-  if(counter==500) {
-    armsUpb = !armsUpb;
-    if(Menu==5) {
-      
+  if(counter%100 == 0) {
+    if(Menu == 5) {
+      armsUpb = !armsUpb;
+      drawMenu();
     }
+    
   } else if(counter>1000) {
-    armsUpb = !armsUpb;
-    if(Menu==5) {
-     
-    }
+    
     /*Serial.print("old val ");
     Serial.print(old_vals);
     Serial.print("and ");
