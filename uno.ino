@@ -50,9 +50,49 @@ bool refreshMenu = true;
  http://www.arduino.cc/en/Tutorial/LiquidCrystalCustomCharacter
 
  Also useful:
- http://icontexto.com/charactercreator/
+ http://maxpromer.github.io/LCD-Character-Creator/
 */ 
 // make some custom characters:
+byte b_battery[8] = {
+  B00000,
+  B00110,
+  B01111,
+  B01001,
+  B01001,
+  B01001,
+  B01001,
+  B01111
+};
+byte b_solar[8] = {
+  B11111,
+  B10101,
+  B11111,
+  B10101,
+  B10101,
+  B11111,
+  B10101,
+  B11111
+};
+byte heart_h[8] = {
+  B00000,
+  B00000,
+  B01010,
+  B10101,
+  B10001,
+  B01010,
+  B00100,  
+  B00000
+}; 
+byte heart_f[8] = {
+  B00000,
+  B00000,
+  B01010,
+  B11111,
+  B11111,
+  B01110,
+  B00100,  
+  B00000
+}; 
 byte heart[8] = {
   0b00000,
   0b01010,
@@ -108,6 +148,95 @@ byte armsUp[8] = {
   0b01010
 };
 
+// degree centigrade
+byte b_c[8] = {
+  B01000,
+  B10100,
+  B01000,
+  B00011,
+  B00100,
+  B00100,
+  B00011,
+  B00000
+};
+
+// degree fahrenheit
+byte b_f[8] = {
+  B01000,
+  B10100,
+  B01000,
+  B00011,
+  B00100,
+  B00111,
+  B00100,
+  B00000
+};
+
+// arrow right
+byte arrow_r[8] = {
+  B00000,
+  B00100,
+  B00010,
+  B11111,
+  B00010,
+  B00100,
+  B00000,
+  B00000
+};
+
+// arrow left
+byte arrow_l[8] = {
+  B00000,
+  B00100,
+  B01000,
+  B11111,
+  B01000,
+  B00100,
+  B00000,
+  B00000
+};
+byte arrow_u[8] = {
+  B00100,
+  B01110,
+  B11111,
+  B00100,
+  B00100,
+  B00100,
+  B00100,  
+  B00100
+}; 
+byte arrow_d[8] = {  
+  B00100,
+  B00100,
+  B00100,
+  B00100,  
+  B00100,  
+  B11111,
+  B01110,
+  B00100
+}; 
+byte b_lock[8] = {  
+  0b01110,
+  0b10001,
+  0b10001,
+  0b11111,
+  0b11011,
+  0b11011,
+  0b11111,
+  0b00000
+};
+byte b_unlock[8] = {  
+  0b01110,
+  0b10000,
+  0b10000,
+  0b11111,
+  0b11011,
+  0b11011,
+  0b11111,
+  0b00000
+};
+
+
 bool armsUpb = false;
 
 //Include LCD library
@@ -139,6 +268,13 @@ byte rowPins[ROWS] = {8, 7, 6, 5};
 byte colPins[COLS] = {4, 3, 2, 1}; 
 
 Keypad customKeypad = Keypad(makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS); 
+
+
+// SET TIME FROM PC
+//#include <TimeLib.h>
+//#include <Wire.h>
+//#include <DS1307RTC.h>  // a basic DS1307 library that returns time as a time_t
+// END TIME
 
 void setup() {
   Serial.begin(57600);
