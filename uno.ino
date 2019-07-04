@@ -1,6 +1,9 @@
 //ARDUINO
 //working keypad, lcd, uart communication, hardcoded code top up, menu dynamic values, getting sensor values from mkr
 
+//TODO: make refreshMenu int of which menu item to refresh instead of all = flicker per incoming new item
+//or have a longer delay than all new incoming sensor items
+
 #include <SoftwareSerial.h>
 SoftwareSerial mySerial(10,11); //RX,TX
 bool show = false;
@@ -36,6 +39,76 @@ float humidity = 40; //humidity in percentage (sensor)
 bool refreshMenu = true;
 
 ///--------------
+
+//LCD
+//custom characters
+/*
+ Based on Adafruit's example at
+ https://github.com/adafruit/SPI_VFD/blob/master/examples/createChar/createChar.pde
+
+ This example code is in the public domain.
+ http://www.arduino.cc/en/Tutorial/LiquidCrystalCustomCharacter
+
+ Also useful:
+ http://icontexto.com/charactercreator/
+*/ 
+// make some custom characters:
+byte heart[8] = {
+  0b00000,
+  0b01010,
+  0b11111,
+  0b11111,
+  0b11111,
+  0b01110,
+  0b00100,
+  0b00000
+};
+
+byte smiley[8] = {
+  0b00000,
+  0b00000,
+  0b01010,
+  0b00000,
+  0b00000,
+  0b10001,
+  0b01110,
+  0b00000
+};
+
+byte frownie[8] = {
+  0b00000,
+  0b00000,
+  0b01010,
+  0b00000,
+  0b00000,
+  0b00000,
+  0b01110,
+  0b10001
+};
+
+byte armsDown[8] = {
+  0b00100,
+  0b01010,
+  0b00100,
+  0b00100,
+  0b01110,
+  0b10101,
+  0b00100,
+  0b01010
+};
+
+byte armsUp[8] = {
+  0b00100,
+  0b01010,
+  0b00100,
+  0b10101,
+  0b01110,
+  0b00100,
+  0b00100,
+  0b01010
+};
+
+bool armsUpb = false;
 
 //Include LCD library
 #include <LiquidCrystal.h>
@@ -271,8 +344,16 @@ void loop() {
    
   }
 
-  if(counter>100) {
-    
+  if(counter==500) {
+    armsUpb = !armsUpb;
+    if(Menu==5) {
+      
+    }
+  } else if(counter>1000) {
+    armsUpb = !armsUpb;
+    if(Menu==5) {
+     
+    }
     /*Serial.print("old val ");
     Serial.print(old_vals);
     Serial.print("and ");
@@ -287,7 +368,7 @@ void loop() {
     //Serial.println(test);//320-330
     //analogWrite(valPin2, HIGH);
   }
-  delay(200);
+  delay(20);
   
 }//end loop
 
@@ -354,7 +435,7 @@ void drawMenu() {
     lcd.print("Temp:  "+String(bat_temp,2)+"C"); 
   }
   else if(Menu==5) {
-    lcd.setCursor(0, 0);
+    /*lcd.setCursor(0, 0);
     lcd.print("Stats"); //Values); 
     
     lcd.setCursor(0, 1);
@@ -365,7 +446,46 @@ void drawMenu() {
     //lcd.print("| test"); 
 
     //lcd.setCursor(8, 1);
-    //lcd.print("| test2"); 
+    //lcd.print("| test2"); */
+    
+    //custom hello
+    // create a new character
+    lcd.createChar(0, heart);
+    // create a new character
+    lcd.createChar(1, smiley);
+    // create a new character
+    lcd.createChar(2, frownie);
+    // create a new character
+    lcd.createChar(3, armsDown);
+    // create a new character
+    lcd.createChar(4, armsUp);
+  
+    // set the cursor to the top left
+    lcd.setCursor(0, 0);
+  
+    // Print a message to the lcd.
+    lcd.print("I ");
+    lcd.write(byte(0)); // when calling lcd.write() '0' must be cast as a byte
+    lcd.print(" Sunshine ");
+    lcd.write((byte)1);
+  
+    lcd.setCursor(4, 1);
+    lcd.print("Labs!");
+
+    if(armsUpb) {
+      lcd.setCursor(2, 1);
+      // draw him arms up:
+      lcd.write(4);
+    
+      lcd.setCursor(10, 1);
+      lcd.write(3);
+    } else {
+      lcd.setCursor(2, 1);
+       // draw the little man, arms down:
+      lcd.write(3);
+      lcd.setCursor(10, 1);
+      lcd.write(4);
+    }
   }
   else if(Menu==6) { //topping up
     lcd.setCursor(0, 0);
