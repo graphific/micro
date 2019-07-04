@@ -5,8 +5,9 @@
 //or have a longer delay than all new incoming sensor items
 
 //TODO: timeNotSet not changing
-//TODO: add RTC time to menu 
+//TODO: only sync RTC every so many minutes...
 //TODO: if no good time, all good, but cannot use offline credit codes
+//TODO: test of gsm doesnt send data (=no correct menu values) = restart??
 
 //TIME
 #include <TimeLib.h>
@@ -339,7 +340,7 @@ void loop() {
     //lcd.print(customKey);
     if(Val=="#") {
       Serial.println("pressed #");
-      if(Menu > 4) {
+      if(Menu > 5) {
         Menu = 0;
       } else {
         Menu += 1;
@@ -351,12 +352,12 @@ void loop() {
 
     if(Val=="*") {
       if(Topping == 0) {//starting out
-        Menu = 6;
+        Menu = 7;
         Topping = 1;
         Values = "";
         lcd.clear();    
       } else if(Topping == 1) {//entered code lets check
-        Menu = 7;
+        Menu = 8;
         Topping = 0;//back to normal after
         lcd.clear();   
       }
@@ -434,7 +435,7 @@ void loop() {
              *  keep code for if we want to send multipel params a;b;c;d
              */
             //Hour, Minute, Second, Day, Month, Year
-            
+            /*
             int str_len = vals2.length() + 1; 
             char char_array[str_len];
             vals2.toCharArray(char_array, str_len);
@@ -445,7 +446,7 @@ void loop() {
             char *p = buf;
             char *str;
             while ((str = strtok_r(p, ";", &p)) != NULL) // delimiter is the semicolon
-              Serial.println(str);
+              Serial.println(str);*/
           }
           
           curcmd = "";
@@ -513,7 +514,7 @@ void loop() {
   }
 
   if(counter%100 == 0) {
-    if(Menu == 5) {
+    if(Menu == 6) {
       armsUpb = !armsUpb;
       drawMenu();
     }
@@ -638,6 +639,31 @@ void drawMenu() {
     lcd.print("Temp:  "+String(bat_temp,2)+"C"); 
   }
   else if(Menu==5) {
+    String hh = String(hour());
+    if(hh.length() < 2)
+      hh = '0'+hh;
+    String mm = String(minute());
+    if(mm.length() < 2)
+      mm = '0'+mm;
+    String ss = String(second());
+    if(ss.length() < 2)
+      ss = '0'+ss;
+    String dd = String(day());
+    if(dd.length() < 2)
+      dd = '0'+dd;
+    String mn = String(month());
+    if(mn.length() < 2)
+      mn = '0'+mn;
+    String yy = String(year());
+   
+    lcd.setCursor(0, 0);
+    lcd.print(dd+"-"+mn+"-"+yy); 
+    //lcd.setCursor(0, 1);
+    //lcd.print(hh+":"+mm+":"+ss);
+    lcd.setCursor(11, 0);
+    lcd.print(hh+":"+mm); 
+  }
+  else if(Menu==6) {
     /*lcd.setCursor(0, 0);
     lcd.print("Stats"); //Values); 
     
@@ -690,14 +716,14 @@ void drawMenu() {
       lcd.write(4);
     }
   }
-  else if(Menu==6) { //topping up
+  else if(Menu==7) { //topping up
     lcd.setCursor(0, 0);
     lcd.print("Type in code");
       
     lcd.setCursor(0, 1);
     lcd.print(Values); 
   }
-  if(Menu==7) { //topping up: step2 entered code
+  if(Menu==8) { //topping up: step2 entered code
     lcd.setCursor(0, 0);
     lcd.print("processing");
 
@@ -723,7 +749,7 @@ void drawMenu() {
         delay(1000);
         lcd.clear();
         Val="*";
-        Menu=6;
+        Menu=7;
       }
       Values="";
     }
