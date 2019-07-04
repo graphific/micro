@@ -1,4 +1,4 @@
-//MKR GSM 1400
+//MKR GSM
 
 //TODO: Voltage Meter Sensor
 //TODO: show GSM status in LCD menu on UNO
@@ -6,6 +6,8 @@
 //TODO: multiple values to hologram or aws which we can plot
 //TODO: allow offline working, but set in restricted regime
 //TODO: power off if no temperature readings for a while??
+
+#include <math.h>
 
 //---- START HOLOGRAM SIM ---
 bool sendingOK=false; //static setting: do we want to send stuff to the hologram cloud?
@@ -31,6 +33,7 @@ GPRS gprs;
 GSM gsmAccess;
 // modem verification object
 GSMModem modem;
+GSMServer gsmserver(80); // port 80 (http default)
 
 // Hologram's Embedded API (https://hologram.io/docs/reference/cloud/embedded/) URL and port
 char server[] = "cloudsocket.hologram.io";
@@ -87,6 +90,20 @@ DHT dht(DHTPIN, DHTTYPE);
 DHT dht2(DHTPIN2, DHTTYPE2);
 //-- END DHT
 
+// SET TIME from GPS
+//#include <TimeLib.h> //http://arduiniana.org/libraries/TinyGPS/
+//#include "TinyGPS.h"
+//TODO: use tinypgs++: http://arduiniana.org/libraries/tinygpsplus/
+//#include <TinyGPS++.h>
+
+//TinyGPS gps; 
+//TinyGPSPlus gps;
+
+//#include <TimeLib.h>
+//#include <Wire.h>
+//#include <DS1307RTC.h>  // a basic DS1307 library that returns time as a time_t
+//// END TIME
+
 void setup() {
   Serial.begin(57600);
   while(!Serial){};
@@ -123,7 +140,52 @@ void setup() {
       connected = true;
       Serial.println("GSM Access Success");
 
+      // start server
+      gsmserver.begin();
+
+      //Get IP.
+      IPAddress LocalIP = gprs.getIPAddress();
+      Serial.println("Server IP address=");
+      Serial.println(LocalIP);
+  
+      /*unsigned long secsSince1900 = gsmAccess.getLocalTime();
+      //1562260319
+      Serial.print("Seconds since Jan 1 1900 = " );
+      Serial.println(secsSince1900);
+      // now convert NTP time into everyday time:
+      Serial.print("Unix time = ");
+      // Unix time starts on Jan 1 1970. In seconds, that's 2208988800:
+      const unsigned long seventyYears = 2208988800UL;
+      // subtract seventy years:
+      unsigned long epoch = secsSince1900 - seventyYears;
+      // print Unix time:
+      Serial.println(epoch);*/
+
+      unsigned long epoch = gsmAccess.getLocalTime();
+
+      //date
+      Serial.print("The UTC date is ");
+      //year
+      Serial.println((epoch / 31556926)+1970);
+
       
+      
+      // print the hour, minute and second:
+      Serial.print("The UTC time is ");       // UTC is the time at Greenwich Meridian (GMT)
+      Serial.print((epoch  % 86400L) / 3600); // print the hour (86400 equals secs per day)
+      Serial.print(':');
+      if ( ((epoch % 3600) / 60) < 10 ) {
+        // In the first 10 minutes of each hour, we'll want a leading '0'
+        Serial.print('0');
+      }
+      Serial.print((epoch  % 3600) / 60); // print the minute (3600 equals secs per minute)
+      Serial.print(':');
+      if ( (epoch % 60) < 10 ) {
+        // In the first 10 seconds of each minute, we'll want a leading '0'
+        Serial.print('0');
+      }
+      Serial.println(epoch % 60); // print the second
+
     } 
     else {
       Serial.println("Not connected");
@@ -139,6 +201,14 @@ void setup() {
 void loop() {
   counter++;
 
+  //GSMClient client = gsmserver.available();
+
+  //if (client) {
+  //  if (client.available()) {
+  //    Serial.write(client.read());
+  //  }
+  //}
+  
   while (Serial1.available()) {
     // get the new byte:
     char inChar = (char)Serial1.read();
