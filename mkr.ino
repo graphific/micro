@@ -461,7 +461,7 @@ void readDHT() {
   // Check if any reads failed and exit early (to try again).
   if (isnan(h2) || isnan(t2) || isnan(f2)) {
     Serial.println(F("Failed to read from DHT2 sensor!"));
-    return;
+    //return; //TODO tends to happen, ignore it? FIX?
     //TODO: set to resetting values to 0 as no readings if too many fail?
   }
   // Compute heat index in Fahrenheit (the default)
