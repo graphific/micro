@@ -1,6 +1,16 @@
 # micro
 microcontroller software
 
+- Uart
+- Menu
+- Keypad
+- LCD
+- OTA
+- GSM
+- Sensors
+- Case
+- PCB
+
 ## Setup:
 
 ### UART
@@ -44,10 +54,21 @@ b = saving an UPDATE.bin file to the SD card and restarting the board.
 
 todo: check if file correctly downloaded first (hash?)
 
-### Sensors
-Measure Voltage
+### GSM
 
-Measure Temperature
+MKR 1400 GSM communicates using hologram IOT sim card and sends data to hologram cloud using the hologram API
+
+### Sensors
+
+#### Measure Voltage
+
+TODO
+
+#### Measure Temperature
+
+DHT11 uses pin 6
+
+DHT22 uses pin 7
 
 ### Case
 3d print
