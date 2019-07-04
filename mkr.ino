@@ -156,8 +156,8 @@ void setup() {
       Serial.print("Unix time = ");
       Serial.println(rtc.getEpoch());
     
-      Serial.print("Seconds since Jan 1 2000 = ");
-      Serial.println(rtc.getY2kEpoch());
+      //Serial.print("Seconds since Jan 1 2000 = ");
+      //Serial.println(rtc.getY2kEpoch());
     
       // Print date...
       Serial.print(rtc.getDay());
@@ -175,6 +175,13 @@ void setup() {
       print2digits(rtc.getSeconds());
     
       Serial.println();
+
+      Serial.println("sending RTC time to uno...");
+      Serial.println("[r"+String(epoch)+"]");
+      Serial1.print("[r"+String(epoch)+"]");
+      //Serial1.print("[r"+String(rtc.getHours())+";"+String(rtc.getHours())+";"+String(rtc.getMinutes())+";"+String(rtc.getSeconds())+";"+String(rtc.getDay())+";"+String(rtc.getMonth())+";"+String(rtc.getYear())+"]");
+      //Hour, Minute, Second, Day, Month, Year
+      //delay(1500);
       
       
       /*
@@ -293,7 +300,9 @@ void loop() {
     Serial1.print("[m"+String(humidity)+"]");
     delay(100);
     //bat_p, bat_wh, bat_time and others calculated
-    
+    //TIME
+    //Serial1.print("[r"+String(rtc.getHours())+";"+String(rtc.getHours())+";"+String(rtc.getMinutes())+";"+String(rtc.getSeconds())+";"+String(rtc.getDay())+";"+String(rtc.getMonth())+";"+String(rtc.getYear())+"]");
+    Serial1.print("[r"+String(rtc.getEpoch())+"]");
     /*
     Serial1.print("[b12.1]"); 
     delay(100);
@@ -304,7 +313,11 @@ void loop() {
     Serial1.print("[a1.2]");
     delay(100);
     */
-    
+
+    //todo: serial send excute command rtc: datetime
+    Serial.print("Unix time = ");
+    Serial.println(rtc.getEpoch());
+      
     //EXECUTE COMMANDS
     //can send commands to execute when demanded from the cloud or mobile (through cloud)
     //Serial1.print("[gcredit]");//
