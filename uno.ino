@@ -4,6 +4,16 @@
 //TODO: make refreshMenu int of which menu item to refresh instead of all = flicker per incoming new item
 //or have a longer delay than all new incoming sensor items
 
+//TODO: timeNotSet not changing
+//TODO: only sync RTC every so many minutes...
+//TODO: if no good time, all good, but cannot use offline credit codes
+//TODO: test of gsm doesnt send data (=no correct menu values) = restart??
+
+//TIME
+#include <TimeLib.h>
+
+//END TIME
+
 #include <SoftwareSerial.h>
 SoftwareSerial mySerial(10,11); //RX,TX
 bool show = false;
@@ -269,13 +279,6 @@ byte colPins[COLS] = {4, 3, 2, 1};
 
 Keypad customKeypad = Keypad(makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS); 
 
-
-// SET TIME FROM PC
-//#include <TimeLib.h>
-//#include <Wire.h>
-//#include <DS1307RTC.h>  // a basic DS1307 library that returns time as a time_t
-// END TIME
-
 void setup() {
   Serial.begin(57600);
   while(!Serial){};
@@ -292,9 +295,18 @@ void setup() {
   
   // Print a message to the LCD.
   lcd.print("Booting up...");
+
+  setSyncProvider( requestSync);  //set function to call when sync required
+  
   delay(1000);
   lcd.clear(); 
 }
+
+time_t requestSync()
+{
+  Serial.println("uno: I want to sync time!");
+}
+
 
 void loop() {
   counter++;
@@ -328,7 +340,7 @@ void loop() {
     //lcd.print(customKey);
     if(Val=="#") {
       Serial.println("pressed #");
-      if(Menu > 4) {
+      if(Menu > 5) {
         Menu = 0;
       } else {
         Menu += 1;
@@ -340,12 +352,12 @@ void loop() {
 
     if(Val=="*") {
       if(Topping == 0) {//starting out
-        Menu = 6;
+        Menu = 7;
         Topping = 1;
         Values = "";
         lcd.clear();    
       } else if(Topping == 1) {//entered code lets check
-        Menu = 7;
+        Menu = 8;
         Topping = 0;//back to normal after
         lcd.clear();   
       }
@@ -416,6 +428,25 @@ void loop() {
             }
           } else if(curcmd == "humidity") {
             humidity = vals2.toFloat();
+          } else if(curcmd == "set_rtc") {
+            setRTC(vals2.toFloat());
+
+            /* 
+             *  keep code for if we want to send multipel params a;b;c;d
+             */
+            //Hour, Minute, Second, Day, Month, Year
+            /*
+            int str_len = vals2.length() + 1; 
+            char char_array[str_len];
+            vals2.toCharArray(char_array, str_len);
+            //(char*) yourString.c_str();
+
+            char buf[sizeof(char_array)];
+            vals2.toCharArray(buf, sizeof(buf));
+            char *p = buf;
+            char *str;
+            while ((str = strtok_r(p, ";", &p)) != NULL) // delimiter is the semicolon
+              Serial.println(str);*/
           }
           
           curcmd = "";
@@ -451,6 +482,8 @@ void loop() {
         curcmd = "load_hv_w"; 
       } else if(startSig and val2 == 'm') {
         curcmd = "humidity"; 
+      } else if(startSig and val2 == 'r') {
+        curcmd = "set_rtc"; 
       } else {
         vals2 += val2;
       }
@@ -481,19 +514,24 @@ void loop() {
   }
 
   if(counter%100 == 0) {
-    if(Menu == 5) {
+    if(Menu == 6) {
       armsUpb = !armsUpb;
       drawMenu();
     }
     
   } else if(counter>1000) {
-    
+    Serial.println("internal time set?");
+    Serial.println(timeNotSet);
+    if(!timeNotSet) {
+      digitalClockDisplay();
+    }
     /*Serial.print("old val ");
     Serial.print(old_vals);
     Serial.print("and ");
     Serial.println(old_vals2);
     Serial.println("--");*/
-
+    
+    //TODO SEND: NEED TIME IF NEEDED
     Serial.println("sending TEST&"); //& is ending char
     mySerial.print("TEST&");
     counter=0;
@@ -505,6 +543,38 @@ void loop() {
   delay(20);
   
 }//end loop
+
+void digitalClockDisplay(){
+  // digital clock display of the time
+  Serial.print(hour());
+  printDigits(minute());
+  printDigits(second());
+  Serial.print(" ");
+  Serial.print(day());
+  Serial.print(" ");
+  Serial.print(month());
+  Serial.print(" ");
+  Serial.print(year()); 
+  Serial.println(); 
+}
+
+void printDigits(int digits){
+  // utility function for digital clock display: prints preceding colon and leading 0
+  Serial.print(":");
+  if(digits < 10)
+    Serial.print('0');
+  Serial.print(digits);
+}
+
+void setRTC(unsigned long epoch) {
+  const unsigned long DEFAULT_TIME = 1357041600; // Jan 1 2013
+  //rtc.setEpoch(epoch); // from GPS
+  if( epoch >= DEFAULT_TIME) { // check the integer is a valid time (greater than Jan 1 2013)
+    setTime(epoch); // Sync Arduino clock to the time received on the serial port
+  }
+  Serial.print("Unix time = ");
+  digitalClockDisplay();
+}
 
 void drawMenu() {
 
@@ -569,6 +639,31 @@ void drawMenu() {
     lcd.print("Temp:  "+String(bat_temp,2)+"C"); 
   }
   else if(Menu==5) {
+    String hh = String(hour());
+    if(hh.length() < 2)
+      hh = '0'+hh;
+    String mm = String(minute());
+    if(mm.length() < 2)
+      mm = '0'+mm;
+    String ss = String(second());
+    if(ss.length() < 2)
+      ss = '0'+ss;
+    String dd = String(day());
+    if(dd.length() < 2)
+      dd = '0'+dd;
+    String mn = String(month());
+    if(mn.length() < 2)
+      mn = '0'+mn;
+    String yy = String(year());
+   
+    lcd.setCursor(0, 0);
+    lcd.print(dd+"-"+mn+"-"+yy); 
+    //lcd.setCursor(0, 1);
+    //lcd.print(hh+":"+mm+":"+ss);
+    lcd.setCursor(11, 0);
+    lcd.print(hh+":"+mm); 
+  }
+  else if(Menu==6) {
     /*lcd.setCursor(0, 0);
     lcd.print("Stats"); //Values); 
     
@@ -621,14 +716,14 @@ void drawMenu() {
       lcd.write(4);
     }
   }
-  else if(Menu==6) { //topping up
+  else if(Menu==7) { //topping up
     lcd.setCursor(0, 0);
     lcd.print("Type in code");
       
     lcd.setCursor(0, 1);
     lcd.print(Values); 
   }
-  if(Menu==7) { //topping up: step2 entered code
+  if(Menu==8) { //topping up: step2 entered code
     lcd.setCursor(0, 0);
     lcd.print("processing");
 
@@ -654,7 +749,7 @@ void drawMenu() {
         delay(1000);
         lcd.clear();
         Val="*";
-        Menu=6;
+        Menu=7;
       }
       Values="";
     }
