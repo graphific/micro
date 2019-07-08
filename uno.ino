@@ -9,9 +9,29 @@
 //TODO: if no good time, all good, but cannot use offline credit codes
 //TODO: test of gsm doesnt send data (=no correct menu values) = restart??
 
+
+// scratch code crypt
+#include <AESLib.h>
+#include <EEPROM.h>
+int eeAddress = 512;
+
+bool bwritePROM = true; //EDITABLE
+
+uint8_t key[16];
+//uint8_t ivv[16]; //skip = same as key
+char secretadd[5];
+char checkcode[5];
+//uint8_t scratch[12];
+bool runCrypt = false;
+
+const PROGMEM char HEX_VALUES[] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
+
+#define CBLOCK (1 * N_BLOCK) + 1
+
+// END CRYPT
+
 //TIME
 #include <TimeLib.h>
-
 //END TIME
 
 #include <SoftwareSerial.h>
@@ -279,6 +299,96 @@ byte colPins[COLS] = {4, 3, 2, 1};
 
 Keypad customKeypad = Keypad(makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS); 
 
+void clearPROM() {
+  for (int i = 0 ; i < EEPROM.length() ; i++) {
+    EEPROM.write(i, 0);
+  }
+}
+
+void writePROM() {
+  int eeAddress = 0;
+  char ekey[16] = {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15};
+  EEPROM.put(eeAddress, ekey);
+  //Serial.println(sizeof(ekey));
+
+ /* eeAddress = 20;
+  char eiv[16] = {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16};
+  EEPROM.put(eeAddress, eiv);
+  Serial.println(sizeof(eiv));*/
+  
+  eeAddress = 16;
+  char esecretadd[5] = "3454"; //{3,4,5,4}; //"3454"; //{4,3,2,1};
+  EEPROM.put(eeAddress, esecretadd);
+  //Serial.println(sizeof(esecretadd));
+
+  eeAddress = 20;
+  char echeckcode[5] = "B9E1";
+  EEPROM.put(eeAddress, echeckcode);
+  //Serial.println(sizeof(echeckcode));
+
+  /*eeAddress = 24;
+  char escratch[12] = {1,2,3,4,5,6,7,8,9,10,11,12};
+  EEPROM.put(eeAddress, escratch);
+  Serial.println(sizeof(escratch));*/
+}
+
+void readPROM() {
+  int eeAddress = 0;
+  EEPROM.get(eeAddress, key);
+
+  //eeAddress = 20;
+  //EEPROM.get(eeAddress, ivv);
+  
+  eeAddress = 16;
+  EEPROM.get(eeAddress, secretadd);
+
+  eeAddress = 20;
+  EEPROM.get(eeAddress, checkcode);
+  /*char echeckcode[5];
+  memcpy( echeckcode, &checkcode[0], 4 );
+  echeckcode[4] = '\0';
+  checkcode = echeckcode*/
+  //Serial.println(subbuff);
+  //eeAddress = 24;
+  //EEPROM.get(eeAddress, scratch);
+  
+}
+
+void printVals() {
+  Serial.println("key: ");
+  for(int i = 0; i < 16; i++)
+  {
+    Serial.print(key[i]);
+  }
+  Serial.println("");
+
+  //iv=key
+
+  Serial.println("secretadd: ");
+  for(int i = 0; i < 4; i++)
+  {
+    Serial.print(secretadd[i]);
+  }
+  Serial.println("");
+
+  Serial.println("checkcode: ");
+  Serial.println(checkcode);
+  /*for(int i = 0; i < 4; i++)
+  {
+    Serial.print(checkcode[i]);
+  }
+  Serial.println("");*/
+
+  /*
+  Serial.println("scratch: ");
+  for(int i = 0; i < 12; i++)
+  {
+    Serial.print(scratch[i]);
+  }
+  Serial.println("");*/
+  Serial.println("---");
+}
+
 void setup() {
   Serial.begin(57600);
   while(!Serial){};
@@ -289,7 +399,7 @@ void setup() {
   mySerial.begin(57600);
   while(!mySerial){};
   mySerial.println("hello mySerial");
-  
+
   // set up the LCD's number of columns and rows: 
   lcd.begin(16, 2);
   
@@ -298,8 +408,16 @@ void setup() {
 
   setSyncProvider( requestSync);  //set function to call when sync required
   
-  delay(1000);
+  //delay(1000);
   lcd.clear(); 
+
+  if(bwritePROM) {
+    clearPROM();
+    writePROM();
+  }
+
+  //delay(1000);
+  runCrypt = true;
 }
 
 time_t requestSync()
@@ -307,23 +425,117 @@ time_t requestSync()
   Serial.println("uno: I want to sync time!");
 }
 
+String smart_shorten_simple(String res, int lenn) {
+ 
+  String new_string = "";
+  //for (int i = 6; i < res.length(); i++){
+  for (int i = 6; i < 6+lenn; i++){
+    char c = res.charAt(i);
+    new_string += c;
+  }
+  //Serial.println(new_string);
+  return new_string;
+}
+
+
+//char serialBuffer[120];
+
+void ByteToHexString(char * hexStrParam, unsigned char * byteArrayParam, unsigned int byteArrayLength)
+{
+  unsigned char num;
+
+  for (int i = 0, u = 0; i < byteArrayLength; i++, u++)
+  {
+    num = byteArrayParam[i] >> 4;
+    hexStrParam[u] = (char)pgm_read_byte(HEX_VALUES + num);
+    num = byteArrayParam[i] & 0xf;
+    hexStrParam[++u] = (char)pgm_read_byte(HEX_VALUES + num);
+  }
+}
+void crypt(char code[12]) {//causes some issues for restarting=when done save to eeprom and restart?
+  //uint8_t key[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+  //uint8_t iv[] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+  //char data[16];
+  Serial.print("code ");
+  Serial.print(code);
+  Serial.print(": ");
+  
+  //char code[12] = "118697312340";//gives B9E1 ok even without memset 0
+  String full_code = "";
+  for (int i = 0; i < 12; i++){
+    full_code += code[i];
+  }
+  for (int i = 0; i < 4; i++){
+    //Serial.println(secretadd[i]);
+    full_code += secretadd[i];
+  }
+  full_code+='\n';
+  //Serial.println(full_code);
+  char copy[17];
+  full_code.toCharArray(copy, 17);
+
+  char data[16];// = full_code; //"1186973123403454";//gives B9E1 ok even without memset 0
+  //char *data = "1186973123403454"; //has null terminator? gives 3131
+  aes_context ctx;
+  char auxBuffer[16*3]; //129
+ 
+  memset(data, 0x00, 16);
+  //memcpy(data, "1242847264023454", 16); //should give 1234
+  //memcpy(data, "1186973123403454", 16); //should give B9E1 //always all caps!
+  memcpy(data, copy, 16); //should give B9E1 //always all caps!
+
+  /*Serial.print("secretadd2: ");
+  for(int i = 0; i < 4; i++)
+  {
+    Serial.print(secretadd[i]);
+  }
+  Serial.println("");
+  Serial.println(data);*/
+
+  //ctx = aes128_cbc_enc_start((const uint8_t*)key, iv);
+  ctx = aes128_cbc_enc_start((const uint8_t*)key, key);
+  aes128_cbc_enc_continue(ctx, data, 16);
+  aes128_cbc_enc_finish(ctx);
+
+  memset(auxBuffer, 0x00, 16*3); //129);
+  ByteToHexString(auxBuffer, (unsigned char *)data, sizeof(data));
+  //sprintf(serialBuffer, "encrypted-cbc: %s", auxBuffer);
+  //Serial.println(serialBuffer);
+
+  String short_hash = smart_shorten_simple(auxBuffer,4);
+  //Serial.println(short_hash);
+  if(short_hash == checkcode) {
+    Serial.println("Correct: lets top up");
+  } else {
+    Serial.println("Incorrect: not topping up");
+  }
+}
 
 void loop() {
   counter++;
   
-  // set the cursor to column 0, line 1
-  // (note: line 1 is the second row, since counting begins with 0):
+  if(runCrypt) {
+    readPROM();
+    printVals();
+    runCrypt = false;
+    /* no val EEPROM:
+     *   17:01:53.629 -> key: 
+     *   17:01:53.629 -> 0000000000000000
+     *   17:01:53.629 -> secretadd: 
+     *   17:01:53.629 -> 0000
+     *   17:01:53.629 -> checkcode: 
+     *   17:01:53.629 -> 0000
+     *   17:01:53.629 -> scratch: 
+     *   17:01:53.629 -> 000000000000
+     */
+     
+    crypt("118697312340");//correct
+    crypt("118697322340");//incorrect
+    crypt("118697312340");//correct
+    crypt("118697322340");//incorrect
+  }
 
   if(Values != oldValues) {
-    /*Serial.print("Menu: ");
-    Serial.println(Menu);
-    Serial.print("Values: ");
-    Serial.println(Values);
-    Serial.print("Val: ");
-    Serial.println(Val);
-    Serial.print("Topping: ");
-    Serial.println(Topping);
-    Serial.println("---");*/
     oldValues = Values;
   }
   
