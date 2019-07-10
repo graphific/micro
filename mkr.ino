@@ -2,6 +2,8 @@
 
 /*
   * Sketch uses 54024 bytes (20%) of program storage space. Maximum is 262144 bytes.
+  * sending all sensor readins as one line
+  * Sketch uses 53512 bytes (20%) of program storage space. Maximum is 262144 bytes.
 */
 
 //TODO: Voltage Meter Sensor
@@ -14,6 +16,12 @@
 
 #include <math.h>
 
+//data types https://www.arduino.cc/reference/en/language/variables/data-types/size_t/
+/* char datatype is at least 8 bits.
+ * unsigned, one-byte (8 bit) = A byte stores an 8-bit unsigned number, from 0 to 255.
+ * float 32 bits (4 bytes) 
+ */
+ 
 //Voltage divider
 bool measureVolt = false;
 // number of analog samples to take per reading
@@ -21,7 +29,7 @@ bool measureVolt = false;
 #define voltagePin A1
 int sample_count = 0;
 float input_volt = 0.0;
-float temp=0.0;
+float temp = 0.0;
 float sum = 0.0;
 float r1=1000; //10000.0;    //r1 value
 float r2=220; //100000.0;      //r2 value
@@ -334,7 +342,7 @@ void loop() {
     //need to change/enter phone number? = do at office or by mobile phone?
     //need to change/enter credit code that works offline = logic on arduino
     
-    Serial1.print("[s"+String(solar_w)+"]");
+    /*Serial1.print("[s"+String(solar_w)+"]");
     delay(100);
     Serial1.print("[a"+String(solar_a)+"]");
     delay(100);
@@ -347,8 +355,10 @@ void loop() {
     Serial1.print("[h"+String(load_hv_w,3)+"]");
     delay(100);
     Serial1.print("[m"+String(humidity)+"]");
-    delay(100);
+    delay(100);*/
     //bat_p, bat_wh, bat_time and others calculated
+    Serial1.print("[s"+String(solar_w)+";a"+String(solar_a)+";b"+String(bat_v)+";t"+String(bat_temp)+";l"+String(load_lv_w)+";h"+String(load_hv_w)+";m"+String(humidity)+"]");
+    
     //TIME
     //Serial1.print("[r"+String(rtc.getHours())+";"+String(rtc.getHours())+";"+String(rtc.getMinutes())+";"+String(rtc.getSeconds())+";"+String(rtc.getDay())+";"+String(rtc.getMonth())+";"+String(rtc.getYear())+"]");
     Serial1.print("[r"+String(rtc.getEpoch())+"]");
