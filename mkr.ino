@@ -2,7 +2,6 @@
 
 /*
   * Sketch uses 54024 bytes (20%) of program storage space. Maximum is 262144 bytes.
-  * TODO: move UNO stuff here that can be done here to save space
 */
 
 //TODO: Voltage Meter Sensor
@@ -492,7 +491,7 @@ void readDHT() {
   // Compute heat index in Celsius (isFahreheit = false)
   float hic = dht.computeHeatIndex(t, h, false);
 
-  Serial.print(F("Humidity: "));
+  /*Serial.print(F("Humidity: "));
   Serial.print(h);
   Serial.print(F("%  Temperature: "));
   Serial.print(t);
@@ -502,7 +501,7 @@ void readDHT() {
   Serial.print(hic);
   Serial.print(F("°C "));
   Serial.print(hif);
-  Serial.println(F("°F"));
+  Serial.println(F("°F"));*/
 
   //DHT2
   // Reading temperature or humidity takes about 250 milliseconds!
@@ -526,6 +525,7 @@ void readDHT() {
   // Compute heat index in Celsius (isFahreheit = false)
   float hic2 = dht.computeHeatIndex(t2, h2, false);
 
+  /*
   Serial.print(F("Humidity2: "));
   Serial.print(h2);
   Serial.print(F("%  Temperature2: "));
@@ -536,14 +536,19 @@ void readDHT() {
   Serial.print(hic2);
   Serial.print(F("°C "));
   Serial.print(hif2);
-  Serial.println(F("°F"));
+  Serial.println(F("°F"));*/
+
+  Serial.print(F("Humidity: "));
+  Serial.print(humidity);
+  Serial.print(F("%  Temperature: "));
+  Serial.println(bat_temp);
 
   //TODO: for now take average, in real system 2 temps
   //1 for bat, 1 for housing
   //saving humidity, temp (TODO: heat index as well?)
   //to be send on simulate settings function
-  humidity = (h+h2)/2;
-  bat_temp = (t+t2)/2;
+  //humidity = (h+h2)/2;
+  //bat_temp = (t+t2)/2;
   
 }
 
