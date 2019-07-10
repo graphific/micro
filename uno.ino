@@ -49,6 +49,9 @@
   Global variables use 1416 bytes (69%) of dynamic memory, leaving 632 bytes for local variables. Maximum is 2048 bytes.
   = now no problem!
 
+  refactor (incl timer t there, but no DS1307)
+  Sketch uses 19926 bytes (61%) of program storage space. Maximum is 32256 bytes.
+  Global variables use 1227 bytes (59%) of dynamic memory, leaving 821 bytes for local variables. Maximum is 2048 bytes.
 */
 
 //TODO: make refreshMenu int of which menu item to refresh instead of all = flicker per incoming new item
@@ -73,6 +76,7 @@ char checkcode[5];
 //uint8_t scratch[12];
 bool testCrypt = true;
 unsigned long ee_epoch; //time to save to mem
+//char ee_epoch[11]; //time to save to mem
 
 const PROGMEM char HEX_VALUES[] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
 #define CBLOCK (1 * N_BLOCK) + 1
@@ -80,6 +84,9 @@ const PROGMEM char HEX_VALUES[] = { '0', '1', '2', '3', '4', '5', '6', '7', '8',
 
 //TIME
 #include <TimeLib.h>
+
+//#define TIME_HEADER  "T"   // Header tag for serial time sync message
+//#define TIME_REQUEST  7    // ASCII bell character requests a time sync message 
 
 //#include <DS1307RTC.h>  // a basic DS1307 library that returns time as a time_t
 #include "Timer.h"
@@ -187,16 +194,37 @@ int budget_days = 3;
 void setup() {
   setupSerials();
   setupPROM();
+  Serial.print("ee_epoch from EEPROM: ");
+  Serial.println(ee_epoch);
   setupLCD();
   runPossibleTests();  //TODO run if asked for by * press
-
+  setSyncProvider( requestSync);
   //events running on a timer:
   int tickEvent = t.every(1000*60, AskMkrData);//every minute
+  int tickEvent2 = t.every(2000,timeCheck);
+}
+
+void timeCheck() {
+  if (timeStatus()!= timeNotSet) {
+    digitalClockDisplay();  
+  }
+  if (timeStatus() == timeSet) {
+    //digitalWrite(13, HIGH); // LED on if synced
+    Serial.println("time is set");
+  } else {
+    //digitalWrite(13, LOW);  // LED off if needs refresh
+    Serial.println("time is not yet set");
+  }
 }
 
 void loop() {
   //counter++;
   t.update();
+
+  if (mySerial.available()) { //Time cmd
+    processSyncMessage();
+  }
+  
   
   char customKey = customKeypad.getKey();
   
@@ -204,7 +232,8 @@ void loop() {
     keyPressed(customKey);
     //drawMenu();
   }
-
+  
+  
   while (mySerial.available()) { //cmd
     //int val = Serial.read();
     char val = (char)mySerial.read();
@@ -244,6 +273,7 @@ void setupPROM() {
     writePROM();
   }
   readPROM();
+  printVals();
 }
 
 void setupLCD() {
@@ -527,8 +557,20 @@ void parseCmd(String vals) {
     //Serial.println(str);
     switch (str[0]) {
       case 'r'://rtc epoch
-        Serial.println("Setting RTC as command from MKR");
-        setRTC(atof(stripCmd(str)));
+        Serial.print("Setting RTC as command from MKR: ");
+        Serial.print(str);
+        //Serial.print(" -> ");
+        //char*cc = stripCmd(str);
+        //Serial.println(cc);
+        String new_string = "";
+        for (int i = 1; i < 11; i++) {
+          //char c = str[i]; //res.charAt(i);
+          new_string += str[i];
+        }
+        //Serial.println(new_string);
+        long ll = new_string.toInt();
+        //Serial.println(ll);
+        setRTC(ll);
         //TODO: save as ee_epoch and to mem
         break;
       case 's':
@@ -571,11 +613,24 @@ void parseCmd(String vals) {
  *  TIME CODE
  * *************************** */
 
-/*time_t requestSync()
-  {
+time_t requestSync()
+{
   Serial.println("uno: I want to sync time!");
-  }
-*/
+}
+
+void processSyncMessage() {
+  /*unsigned long pctime;
+  const unsigned long DEFAULT_TIME = 1357041600; // Jan 1 2013
+
+  if(mySerial.find(TIME_HEADER)) {
+     pctime = mySerial.parseInt();
+     Serial.print("processSyncMessage...");
+     Serial.print(pctime);
+     if( pctime >= DEFAULT_TIME) { // check the integer is a valid time (greater than Jan 1 2013)
+       setTime(pctime); // Sync Arduino clock to the time received on the serial port
+     }
+  }*/
+}
 
 void digitalClockDisplay(){
   // digital clock display of the time
@@ -600,21 +655,22 @@ void digitalClockDisplay(){
   }
 
 void setRTC(unsigned long epoch) {
+  Serial.print("setRTC...");
+  Serial.println(epoch);
   const unsigned long DEFAULT_TIME = 1357041600; // Jan 1 2013
   //rtc.setEpoch(epoch); // from GPS
   if ( epoch >= DEFAULT_TIME) { // check the integer is a valid time (greater than Jan 1 2013)
     setTime(epoch); // Sync Arduino clock to the time received on the serial port
-
-    //RTC.set(epoch);
+    Serial.print("saving to EEPROM...");
+    eeAddress = 30;
+    //char echeckcode[5] = "B9E1";
+    //const unsigned long eepoch = epoch;
+    EEPROM.put(eeAddress, epoch);
+    //eeAddress = 30;
+    //EEPROM.put(eeAddress, ee_epoch);
   }
-  //Serial.print("Unix time = ");
-  //digitalClockDisplay();
-
-  Serial.print("saving to EEPROM...");
-  eeAddress = 30;
-  //char esecretadd[5] = "3454"; //{3,4,5,4}; //"3454"; //{4,3,2,1};
-  EEPROM.put(eeAddress, epoch);
-
+  
+  
 }
 // === END TIME FUNCTIONS ===
 
@@ -748,6 +804,13 @@ void writePROM() {
     EEPROM.put(eeAddress, escratch);
     Serial.println(sizeof(escratch));*/
 
+
+  /*eeAddress = 30;
+  //char eepoch[11] = "1562795118";
+  unsigned long eepoch = 1562795118;
+  EEPROM.put(eeAddress, eepoch);
+  //Serial.println(sizeof(echeckcode));
+  */
 }
 
 void readPROM() {
@@ -770,12 +833,15 @@ void readPROM() {
   //eeAddress = 24;
   //EEPROM.get(eeAddress, scratch);
 
-  eeAddress = 40;
-  //unsigned long ee_epoch;
+  eeAddress = 30;
   EEPROM.get(eeAddress, ee_epoch);
+  
+  //eeAddress = 40;
+  //unsigned long ee_epoch;
+  //EEPROM.get(eeAddress, ee_epoch);
 }
 
-/*void printVals() {
+void printVals() {
   Serial.println("key: ");
   for(int i = 0; i < 16; i++)
   {
@@ -804,10 +870,15 @@ void readPROM() {
   Serial.println("scratch: ");
   for(int i = 0; i < 12; i++)
   {
-  Serial.print(scratch[i]);
+    Serial.print(scratch[i]);
   }
   Serial.println("");*/
+
+  Serial.println("ee_epoch: ");
+  Serial.print(ee_epoch);
+  Serial.println("");
+  
 //Serial.println("---");
-//}
+}
 
 // === END EEPROM MEMORY ===
