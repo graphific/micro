@@ -66,21 +66,16 @@
 //TODO: if no good time, all good, but cannot use offline credit codes
 //TODO: test of gsm doesnt send data (=no correct menu values) = restart??
 
-
 // SRATCHCODE CRYPTO IMPORTS
 #include <AESLib.h>
 #include <EEPROM.h>
-int eeAddress = 512;
 bool bwritePROM = false; //EDITABLE
 //vars to/from EEPOM:
 uint8_t key[16];
-//uint8_t ivv[16]; //skip = same as key
 char secretadd[5];
 char checkcode[5];
-//uint8_t scratch[12];
 bool testCrypt = true;
 unsigned long ee_epoch; //time to save to mem
-//char ee_epoch[11]; //time to save to mem
 
 const PROGMEM char HEX_VALUES[] = { '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F' };
 #define CBLOCK (1 * N_BLOCK) + 1
@@ -88,32 +83,15 @@ const PROGMEM char HEX_VALUES[] = { '0', '1', '2', '3', '4', '5', '6', '7', '8',
 
 //TIME
 #include <TimeLib.h>
-
-//#define TIME_HEADER  "T"   // Header tag for serial time sync message
-//#define TIME_REQUEST  7    // ASCII bell character requests a time sync message 
-
-//#include <DS1307RTC.h>  // a basic DS1307 library that returns time as a time_t
 #include "Timer.h"
 Timer t;
 //END TIME
 
-//COMMUNICATION
+//COMMUNICATION: rx/tx serial -> mkr <> uno:
 #include <SoftwareSerial.h>
 SoftwareSerial mySerial(10, 11); //RX,TX
-//normal serial
-//bool show = false;
-//String vals="";
-//String old_vals = "";
-
-//rx/tx serial mkr <> uno:
-//bool show2 = false;
 String cmd_vals = ""; //stores incoming serial cmd string
-//String old_vals2 = "";
 
-//bool startSig = false;
-//bool execute = false;
-//int counter = 0;
-//String curcmd = "";
 //---------------
 //UPDATED BY GSM:
 const float bat_ah = 100; //our total battery capacaity
@@ -136,29 +114,10 @@ bool refreshMenu = true;
 ///--------------
 
 //=== LCD ===
-//custom characters
-/*
-  Based on Adafruit's example at
-  https://github.com/adafruit/SPI_VFD/blob/master/examples/createChar/createChar.pde
-
-  This example code is in the public domain.
-  http://www.arduino.cc/en/Tutorial/LiquidCrystalCustomCharacter
-
-  Also useful:
-  http://maxpromer.github.io/LCD-Character-Creator/
-*/
-
-// make some custom characters (rm for now)
-  
-
-// The LCD library
 #include <LiquidCrystal.h>
-
-// initialize the library with the numbers of the interface pins
 LiquidCrystal lcd(A0, A1, A2, A3, A4, A5);
 
 // === KEYPAD ===
-
 #include <Keypad.h>
 const byte ROWS = 4;
 const byte COLS = 4;
@@ -173,7 +132,7 @@ byte colPins[COLS] = {4, 3, 2, 1};
 Keypad customKeypad = Keypad(makeKeymap(hexaKeys), rowPins, colPins, ROWS, COLS);
 
 // === MENU VARS ===
-String Values = "";
+String typingValues = "";//when typing on keypad string stored here, eg for typing a password
 int Menu = 0; //which menu item is active
 String Val;
 int Topping = 0;
@@ -181,14 +140,6 @@ String oldValues = "";
 int budget_days = 3;
 
 //=== END INIT OF VARS ===
-
-//temp dump:
-  //Timer.h / DS1307RTC.h
-  //setSyncProvider(RTC.get);   // the function to sync the time from the RTC
-  //setSyncProvider( requestSync);  //set function to call when sync required
-  //setSyncProvider(RTC.get);
-  
-  //clearPROM();
 
       
 /* *************************** /*
@@ -207,40 +158,24 @@ void setup() {
 void timeCheck() {
   if (timeStatus()!= timeNotSet) {
     digitalClockDisplay();  
-    //time_t timeNow = now();
     ee_epoch = now(); //timeNow;
-    //Serial.println(timeNow);
-    //Serial.println(ee_epoch);
-    //save accurate time to EEPROM
-    eeAddress = 30;
-    EEPROM.put(eeAddress, ee_epoch);
+    EEPROM.put(30, ee_epoch);
+    drawMenu();//update menu
   }
-  if (timeStatus() == timeSet) {
-    //digitalWrite(13, HIGH); // LED on if synced
-    //Serial.println("time is set");
-  } else {
-    //digitalWrite(13, LOW);  // LED off if needs refresh
-    Serial.println("time is not yet set");
-  }
-  drawMenu();//update menu
 }
 
 void loop() {
-  //counter++;
   t.update();
 
   if (mySerial.available()) { //Time cmd
     processSyncMessage();
   }
   
-  
   char customKey = customKeypad.getKey();
-  
   if (customKey != NO_KEY) { //TODO: BELOW ALWAYS RUNS = BAD?
     keyPressed(customKey);
     //drawMenu();
   }
-  
   
   while (mySerial.available()) { //cmd
     //int val = Serial.read();
@@ -254,8 +189,6 @@ void loop() {
       cmd_vals += val;
     }
   }
-
-  //delay(20);
 
 }
 // == END LOOP() ===
@@ -309,13 +242,10 @@ void setupTimeEvents() {
 }
 
 void postPROMinit() {
-
   //sets time to last time stored in eeprom (counted or gps: when device was last on)
   //not accurate and needs gps time sync from mkr, but at least not too far off day-wise.
   //wont be much off as arduino should never be off, only if battery really at 0% as well as its own backup battery
-  //Serial.print("ee_epoch from EEPROM: ");
-  //Serial.println(ee_epoch);
-  //setRTC(ee_epoch);
+
   setTime(ee_epoch);
 }
 // === END GENERAL INIT/STARTUP CODE ===
@@ -418,76 +348,24 @@ void drawMenu() {
     lcd.print(hh + ":" + mm);
   }
   else if (Menu == 6) {
-    /*lcd.setCursor(0, 0);
-      lcd.print("Stats"); //Values);
-
-      lcd.setCursor(0, 1);
-      lcd.print("Uptime: ");
-      lcd.print(millis() / 1000);
-
-      //lcd.setCursor(8, 0);
-      //lcd.print("| test");
-
-      //lcd.setCursor(8, 1);
-      //lcd.print("| test2"); */
-
-    //FF DISABLE
-    /*
-      //custom hello
-      // create a new character
-      lcd.createChar(0, heart);
-      // create a new character
-      lcd.createChar(1, smiley);
-      // create a new character
-      lcd.createChar(2, frownie);
-      // create a new character
-      lcd.createChar(3, armsDown);
-      // create a new character
-      lcd.createChar(4, armsUp);
-
-      // set the cursor to the top left
-      lcd.setCursor(0, 0);
-
-      // Print a message to the lcd.
-      lcd.print("I ");
-      lcd.write(byte(0)); // when calling lcd.write() '0' must be cast as a byte
-      lcd.print(" Sunshine ");
-      lcd.write((byte)1);
-
-      lcd.setCursor(4, 1);
-      lcd.print("Labs!");
-
-      if(armsUpb) {
-      lcd.setCursor(2, 1);
-      // draw him arms up:
-      lcd.write(4);
-
-      lcd.setCursor(10, 1);
-      lcd.write(3);
-      } else {
-      lcd.setCursor(2, 1);
-       // draw the little man, arms down:
-      lcd.write(3);
-      lcd.setCursor(10, 1);
-      lcd.write(4);
-      }*/
+    
   }
   else if (Menu == 7) { //topping up
     lcd.setCursor(0, 0);
     lcd.print("Type in code");
 
     lcd.setCursor(0, 1);
-    lcd.print(Values);
+    lcd.print(typingValues);
   }
   if (Menu == 8) { //topping up: step2 entered code
     lcd.setCursor(0, 0);
     lcd.print("processing");
 
-    if (Val == "*" and Values != "*") { //* in there but not only *
+    if (Val == "*" and typingValues != "*") { //* in there but not only *
       //Serial.print("code:");
-      Serial.println(Values);
+      Serial.println(typingValues);
 
-      if (Values == "12345*") {
+      if (typingValues == "12345*") {
         lcd.clear();
         lcd.setCursor(0, 1);
         lcd.print("correct");
@@ -507,7 +385,7 @@ void drawMenu() {
         Val = "*";
         Menu = 7;
       }
-      Values = "";
+      //typingValues = "";
     }
   }//end menu cases
 }
@@ -532,14 +410,14 @@ void keyPressed(char customKey) {
     }
     //lcd.clear();
   } else {
-    Values += customKey;
+    typingValues += customKey;
   }
 
   if (customKey == '*') { //top up
     if (Topping == 0) { //starting out
       Menu = 7;
       Topping = 1;
-      Values = "";
+      typingValues = "";
       lcd.clear();
     } else if (Topping == 1) { //entered code lets check
       Menu = 8;
@@ -564,7 +442,6 @@ void keyPressed(char customKey) {
 int MAXSIZE = 10;
 char * stripCmd(char *input) {//strip first char
   memmove(input, input + 1, (MAXSIZE - 1) / sizeof(input[0]));
-  //Serial.println(input);
   return input;
 }
 
@@ -580,17 +457,12 @@ void parseCmd(String vals) {
   char *p = buf;
   char *str;
   while ((str = strtok_r(p, ";", &p)) != NULL) // delimiter is the semicolon
-    //Serial.println(str);
     switch (str[0]) {
       case 'r'://rtc epoch
         Serial.print("Setting RTC as command from MKR: ");
         Serial.print(str);
-        //Serial.print(" -> ");
-        //char*cc = stripCmd(str);
-        //Serial.println(cc);
         String new_string = "";
         for (int i = 1; i < 11; i++) {
-          //char c = str[i]; //res.charAt(i);
           new_string += str[i];
         }
         //Serial.println(new_string);
@@ -684,19 +556,11 @@ void setRTC(unsigned long epoch) {
   Serial.print("setRTC...");
   Serial.println(epoch);
   const unsigned long DEFAULT_TIME = 1357041600; // Jan 1 2013
-  //rtc.setEpoch(epoch); // from GPS
   if ( epoch >= DEFAULT_TIME) { // check the integer is a valid time (greater than Jan 1 2013)
     setTime(epoch); // Sync Arduino clock to the time received on the serial port
     Serial.print("saving to EEPROM...");
-    eeAddress = 30;
-    //char echeckcode[5] = "B9E1";
-    //const unsigned long eepoch = epoch;
-    EEPROM.put(eeAddress, epoch);
-    //eeAddress = 30;
-    //EEPROM.put(eeAddress, ee_epoch);
+    EEPROM.put(30, epoch);
   }
-  
-  
 }
 // === END TIME FUNCTIONS ===
 
@@ -717,9 +581,6 @@ String smart_shorten_simple(String res, int lenn) {
   return new_string;
 }
 
-
-//char serialBuffer[120];
-
 void ByteToHexString(char * hexStrParam, unsigned char * byteArrayParam, unsigned int byteArrayLength)
 {
   unsigned char num;
@@ -732,58 +593,40 @@ void ByteToHexString(char * hexStrParam, unsigned char * byteArrayParam, unsigne
     hexStrParam[++u] = (char)pgm_read_byte(HEX_VALUES + num);
   }
 }
+
 void crypt(char code[12]) {//causes some issues for restarting=when done save to eeprom and restart?
-  //uint8_t key[] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
-  //uint8_t iv[] = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
-  //char data[16];
   Serial.print("code ");
   Serial.print(code);
   Serial.print(": ");
 
-  //char code[12] = "118697312340";//gives B9E1 ok even without memset 0
+  //concatenating sratchcode and addition
   String full_code = "";
   for (int i = 0; i < 12; i++) {
     full_code += code[i];
   }
   for (int i = 0; i < 4; i++) {
-    //Serial.println(secretadd[i]);
     full_code += secretadd[i];
   }
   full_code += '\n';
-  //Serial.println(full_code);
+  //convert to char array "copy"
   char copy[17];
   full_code.toCharArray(copy, 17);
 
-  char data[16];// = full_code; //"1186973123403454";//gives B9E1 ok even without memset 0
-  //char *data = "1186973123403454"; //has null terminator? gives 3131
+  char data[16];
   aes_context ctx;
   char auxBuffer[16 * 3]; //129
 
   memset(data, 0x00, 16);
-  //memcpy(data, "1242847264023454", 16); //should give 1234
-  //memcpy(data, "1186973123403454", 16); //should give B9E1 //always all caps!
-  memcpy(data, copy, 16); //should give B9E1 //always all caps!
+  memcpy(data, copy, 16); //should give something like B9E1: always all caps!
 
-  /*Serial.print("secretadd2: ");
-    for(int i = 0; i < 4; i++)
-    {
-    Serial.print(secretadd[i]);
-    }
-    Serial.println("");
-    Serial.println(data);*/
-
-  //ctx = aes128_cbc_enc_start((const uint8_t*)key, iv);
-  ctx = aes128_cbc_enc_start((const uint8_t*)key, key);
+  ctx = aes128_cbc_enc_start((const uint8_t*)key, key); //key and iv both same
   aes128_cbc_enc_continue(ctx, data, 16);
   aes128_cbc_enc_finish(ctx);
 
   memset(auxBuffer, 0x00, 16 * 3); //129);
   ByteToHexString(auxBuffer, (unsigned char *)data, sizeof(data));
-  //sprintf(serialBuffer, "encrypted-cbc: %s", auxBuffer);
-  //Serial.println(serialBuffer);
 
   String short_hash = smart_shorten_simple(auxBuffer, 4);
-  //Serial.println(short_hash);
   if (short_hash == checkcode) {
     Serial.println("Correct: lets top up");
   } else {
@@ -793,6 +636,14 @@ void crypt(char code[12]) {//causes some issues for restarting=when done save to
 
 // === END CRYPTO CODE ===
 
+// UTIL functions
+void printIntArray(uint8_t * charval, int MAX) {
+  for(int i = 0; i < MAX; i++)
+  {
+    Serial.print(charval[i]);
+  }
+  Serial.println("");
+}
 
 /* *************************** /*
  *  EEPROM MEMORY CODE
@@ -805,106 +656,37 @@ void clearPROM() {
 }
 
 void writePROM() {
-  int eeAddress = 0;
   char ekey[16] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
-  EEPROM.put(eeAddress, ekey);
-  //Serial.println(sizeof(ekey));
-
-  /* eeAddress = 20;
-    char eiv[16] = {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16};
-    EEPROM.put(eeAddress, eiv);
-    Serial.println(sizeof(eiv));*/
-
-  eeAddress = 16;
-  char esecretadd[5] = "3454"; //{3,4,5,4}; //"3454"; //{4,3,2,1};
-  EEPROM.put(eeAddress, esecretadd);
-  //Serial.println(sizeof(esecretadd));
-
-  eeAddress = 20;
+  EEPROM.put(0, ekey);
+  
+  char esecretadd[5] = "3454";
+  EEPROM.put(16, esecretadd);
+  
   char echeckcode[5] = "B9E1";
-  EEPROM.put(eeAddress, echeckcode);
-  //Serial.println(sizeof(echeckcode));
-
-  /*eeAddress = 24;
-    char escratch[12] = {1,2,3,4,5,6,7,8,9,10,11,12};
-    EEPROM.put(eeAddress, escratch);
-    Serial.println(sizeof(escratch));*/
-
-
-  /*eeAddress = 30;
-  //char eepoch[11] = "1562795118";
-  unsigned long eepoch = 1562795118;
-  EEPROM.put(eeAddress, eepoch);
-  //Serial.println(sizeof(echeckcode));
-  */
+  EEPROM.put(20, echeckcode);
+  
+  EEPROM.put(30, 1562847038);
 }
 
 void readPROM() {
-  int eeAddress = 0;
-  EEPROM.get(eeAddress, key);
-
-  //eeAddress = 20;
-  //EEPROM.get(eeAddress, ivv);
-
-  eeAddress = 16;
-  EEPROM.get(eeAddress, secretadd);
-
-  eeAddress = 20;
-  EEPROM.get(eeAddress, checkcode);
-  /*char echeckcode[5];
-    memcpy( echeckcode, &checkcode[0], 4 );
-    echeckcode[4] = '\0';
-    checkcode = echeckcode*/
-  //Serial.println(subbuff);
-  //eeAddress = 24;
-  //EEPROM.get(eeAddress, scratch);
-
-  eeAddress = 30;
-  EEPROM.get(eeAddress, ee_epoch);
-  
-  //eeAddress = 40;
-  //unsigned long ee_epoch;
-  //EEPROM.get(eeAddress, ee_epoch);
+  EEPROM.get(0, key);
+  EEPROM.get(16, secretadd);
+  EEPROM.get(20, checkcode);
+  EEPROM.get(30, ee_epoch);
 }
 
 void printVals() {
   Serial.println("key: ");
-  for(int i = 0; i < 16; i++)
-  {
-    Serial.print(key[i]);
-  }
-  Serial.println("");
-
-  //iv=key
-
+  printIntArray(key,16);
+  
   Serial.println("secretadd: ");
-  for(int i = 0; i < 4; i++)
-  {
-    Serial.print(secretadd[i]);
-  }
-  Serial.println("");
+  printIntArray(secretadd,4);
 
   Serial.println("checkcode: ");
   Serial.println(checkcode);
-  /*for(int i = 0; i < 4; i++)
-  {
-    Serial.print(checkcode[i]);
-  }
-  Serial.println("");*/
-
-/*
-  Serial.println("scratch: ");
-  for(int i = 0; i < 12; i++)
-  {
-    Serial.print(scratch[i]);
-  }
-  Serial.println("");*/
 
   Serial.println("ee_epoch: ");
-  Serial.print(ee_epoch);
-  Serial.println("");
-  
-//Serial.println("---");
+  Serial.println(ee_epoch);
 }
 
 // === END EEPROM MEMORY ===
