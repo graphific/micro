@@ -52,6 +52,10 @@
   refactor (incl timer t there, but no DS1307)
   Sketch uses 19926 bytes (61%) of program storage space. Maximum is 32256 bytes.
   Global variables use 1227 bytes (59%) of dynamic memory, leaving 821 bytes for local variables. Maximum is 2048 bytes.
+
+  time now re-set from memory
+  Sketch uses 19000 bytes (58%) of program storage space. Maximum is 32256 bytes.
+  Global variables use 1267 bytes (61%) of dynamic memory, leaving 781 bytes for local variables. Maximum is 2048 bytes.
 */
 
 //TODO: make refreshMenu int of which menu item to refresh instead of all = flicker per incoming new item
@@ -194,27 +198,31 @@ int budget_days = 3;
 void setup() {
   setupSerials();
   setupPROM();
-  Serial.print("ee_epoch from EEPROM: ");
-  Serial.println(ee_epoch);
   setupLCD();
   runPossibleTests();  //TODO run if asked for by * press
-  setSyncProvider( requestSync);
-  //events running on a timer:
-  int tickEvent = t.every(1000*60, AskMkrData);//every minute
-  int tickEvent2 = t.every(2000,timeCheck);
+  setupTimeEvents();
+  postPROMinit();
 }
 
 void timeCheck() {
   if (timeStatus()!= timeNotSet) {
     digitalClockDisplay();  
+    //time_t timeNow = now();
+    ee_epoch = now(); //timeNow;
+    //Serial.println(timeNow);
+    //Serial.println(ee_epoch);
+    //save accurate time to EEPROM
+    eeAddress = 30;
+    EEPROM.put(eeAddress, ee_epoch);
   }
   if (timeStatus() == timeSet) {
     //digitalWrite(13, HIGH); // LED on if synced
-    Serial.println("time is set");
+    //Serial.println("time is set");
   } else {
     //digitalWrite(13, LOW);  // LED off if needs refresh
     Serial.println("time is not yet set");
   }
+  drawMenu();//update menu
 }
 
 void loop() {
@@ -291,6 +299,24 @@ void runPossibleTests() {
     crypt("118697312340");//correct
     crypt("118697322340");//incorrect
   }
+}
+
+void setupTimeEvents() {
+  setSyncProvider( requestSync);
+  //events running on a timer:
+  int tickEvent = t.every(1000*60, AskMkrData);//every minute
+  int tickEvent2 = t.every(2000,timeCheck);
+}
+
+void postPROMinit() {
+
+  //sets time to last time stored in eeprom (counted or gps: when device was last on)
+  //not accurate and needs gps time sync from mkr, but at least not too far off day-wise.
+  //wont be much off as arduino should never be off, only if battery really at 0% as well as its own backup battery
+  //Serial.print("ee_epoch from EEPROM: ");
+  //Serial.println(ee_epoch);
+  //setRTC(ee_epoch);
+  setTime(ee_epoch);
 }
 // === END GENERAL INIT/STARTUP CODE ===
 
