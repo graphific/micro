@@ -12,7 +12,7 @@
 ** Don't forget to use the new LiquidCrystal Library.
 */
 
-//https://forum.arduino.cc/index.php?topic=120929.60
+
 
 #include <Wire.h>
 #include <LCD.h>
@@ -31,8 +31,23 @@
 
 LiquidCrystal_I2C  lcd(I2C_ADDR,En_pin,Rw_pin,Rs_pin,D4_pin,D5_pin,D6_pin,D7_pin);
 
+// Creat a set of new characters
+const uint8_t charBitmap[][8] = {
+   { 0xc, 0x12, 0x12, 0xc, 0, 0, 0, 0 },
+   { 0x6, 0x9, 0x9, 0x6, 0, 0, 0, 0 },
+   { 0x0, 0x6, 0x9, 0x9, 0x6, 0, 0, 0x0 },
+   { 0x0, 0xc, 0x12, 0x12, 0xc, 0, 0, 0x0 },
+   { 0x0, 0x0, 0xc, 0x12, 0x12, 0xc, 0, 0x0 },
+   { 0x0, 0x0, 0x6, 0x9, 0x9, 0x6, 0, 0x0 },
+   { 0x0, 0x0, 0x0, 0x6, 0x9, 0x9, 0x6, 0x0 },
+   { 0x0, 0x0, 0x0, 0xc, 0x12, 0x12, 0xc, 0x0 }
+   
+};
+
 void setup()
 {
+   int charBitmapSize = (sizeof(charBitmap ) / sizeof (charBitmap[0]));
+   
  //lcd.begin (16,2);
  lcd.begin (20,4);
  
@@ -40,15 +55,37 @@ void setup()
  lcd.setBacklightPin(BACKLIGHT_PIN,POSITIVE);
  lcd.setBacklight(HIGH);
 
+ //alt method doeesnt work
+ // Switch on the backlight
+ //pinMode ( BACKLIGHT_PIN, OUTPUT );
+ //digitalWrite ( BACKLIGHT_PIN, HIGH );
+  
+
+  for ( int i = 0; i < charBitmapSize; i++ )
+   {
+      lcd.createChar ( i, (uint8_t *)charBitmap[i] );
+   }
+   
  // Position cursor and write some text
  lcd.home ();                   // go to the first line, first character
- lcd.print("Thank you!");  
+ lcd.print("Sunshine Lab");  
  lcd.setCursor ( 0, 1 );        // go to the 2nd line
- lcd.print("It's Working!");
-
+ lcd.print("presents...");
+delay ( 1000 );
 }
 
 void loop()
 {
-
+  lcd.home ();
+  lcd.setCursor ( 0, 2 );
+   // Do a little animation by writing to the same location
+   for ( int i = 2; i < 4; i++ )
+   {
+      for ( int j = 0; j < 20; j++ )
+      {
+         lcd.print (char(random(7)));
+      }
+      lcd.setCursor ( 0, 3 );
+   }
+   delay (200);
 }
